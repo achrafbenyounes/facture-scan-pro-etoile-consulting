@@ -1,7 +1,0 @@
-# Dépendances système pour Streamlit Cloud
-# Nécessaire pour l'OCR avec pytesseract
-
-tesseract-ocr
-tesseract-ocr-fra
-tesseract-ocr-eng
-libgl1-mesa-glx
