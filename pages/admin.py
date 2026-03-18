@@ -1,5 +1,5 @@
 """
-Espace comptable — Dashboard responsive PC et mobile.
+Espace comptable —- Dashboard responsive PC et mobile.
 """
 import hashlib
 import streamlit as st

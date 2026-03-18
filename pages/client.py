@@ -1,5 +1,5 @@
 """
-Page client — Scan universel Android/iPhone/Desktop.
+Page client -— Scan universel Android/iPhone/Desktop.
 Upload natif Streamlit : fonctionne sur tous les appareils.
 """
 import streamlit as st
