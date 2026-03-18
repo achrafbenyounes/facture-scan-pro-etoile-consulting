@@ -1,197 +1,387 @@
 """
-Page espace comptable : dashboard protégé par mot de passe.
+Espace comptable — Dashboard responsive PC et mobile.
 """
 import hashlib
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 
-from utils.history import get_history
+from utils.history import get_history, delete_file_entry
+
+ADMIN_CSS = """<style>
+/* ── Layout responsive ────────────────────────────────────────────── */
+.dash-header {
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem;
+}
+.dash-title {
+    font-family:'Syne',sans-serif; font-weight:800;
+    font-size:1.3rem; color:#0d0d0d; margin:0;
+}
+.dash-sub { font-size:.8rem; color:#6b6560; margin:0; }
+
+/* ── Stats ────────────────────────────────────────────────────────── */
+.stats-grid {
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap:.8rem; margin-bottom:1.5rem;
+}
+@media (max-width:600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.stat-card {
+    background:#fff; border:1.5px solid #d4cfc6; border-radius:8px;
+    padding:1rem .8rem; text-align:center; box-shadow:2px 2px 0 #d4cfc6;
+}
+.stat-n {
+    font-family:'Syne',sans-serif; font-size:2rem;
+    font-weight:800; color:#1a472a; line-height:1.1;
+}
+.stat-l {
+    font-size:.68rem; text-transform:uppercase;
+    letter-spacing:.08em; color:#6b6560; margin-top:3px;
+}
+
+/* ── Search ───────────────────────────────────────────────────────── */
+.search-hint {
+    font-size:.75rem; color:#9ca3af;
+    text-align:center; margin-bottom:.8rem;
+}
+
+/* ── Client card ─────────────────────────────────────────────────── */
+.client-card {
+    background:#fff; border:1.5px solid #d4cfc6; border-radius:8px;
+    margin-bottom:.8rem; overflow:hidden; box-shadow:2px 2px 0 #d4cfc6;
+}
+.client-top {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.9rem 1.2rem; border-bottom:1px solid #f3f4f6; flex-wrap:wrap; gap:.5rem;
+}
+.client-name {
+    font-family:'Syne',sans-serif; font-weight:700;
+    font-size:1rem; color:#0d0d0d; display:flex; align-items:center; gap:8px;
+}
+.client-meta {
+    font-size:.75rem; color:#6b6560;
+    display:flex; gap:1rem; flex-wrap:wrap; align-items:center;
+}
+.client-body { padding:.8rem 1.2rem 1rem; }
+
+/* ── Contact pills ───────────────────────────────────────────────── */
+.contact-row {
+    display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:.8rem;
+}
+.contact-pill {
+    background:#f3f4f6; border-radius:20px;
+    padding:3px 12px; font-size:.75rem; color:#374151;
+    display:flex; align-items:center; gap:5px;
+}
+.contact-pill a { color:#1e40af; text-decoration:none; }
+
+/* ── Année / Mois ────────────────────────────────────────────────── */
+.year-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:#edf7ef; color:#1a472a; border-radius:4px;
+    padding:3px 10px; font-family:'Syne',sans-serif;
+    font-weight:700; font-size:.75rem; text-transform:uppercase;
+    letter-spacing:.06em; margin-bottom:.5rem;
+}
+.month-label {
+    font-size:.72rem; font-weight:600; color:#6b6560;
+    text-transform:uppercase; letter-spacing:.06em;
+    margin:.4rem 0 .3rem .5rem;
+}
+
+/* ── Invoice row ─────────────────────────────────────────────────── */
+.inv-row {
+    display:grid;
+    grid-template-columns: 1.8rem 1fr auto auto auto auto;
+    align-items:center; gap:.5rem;
+    padding:7px 10px; background:#f9fafb;
+    border:1px solid #e5e7eb; border-radius:6px;
+    margin-bottom:4px; font-size:.8rem;
+}
+@media (max-width:600px) {
+    .inv-row {
+        grid-template-columns: 1.5rem 1fr auto auto;
+    }
+    .inv-hide-mobile { display:none !important; }
+}
+.inv-name {
+    font-weight:500; color:#0d0d0d;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.inv-cat {
+    font-size:.68rem; padding:2px 7px; border-radius:20px;
+    background:#f3f4f6; color:#374151; white-space:nowrap;
+}
+.inv-amt  { font-weight:700; color:#1a472a; white-space:nowrap; font-size:.82rem; }
+.inv-date { color:#9ca3af; font-size:.72rem; white-space:nowrap; }
+
+/* ── Intégrations ────────────────────────────────────────────────── */
+.integ-row {
+    display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem;
+}
+.integ-pill {
+    display:flex; align-items:center; gap:6px;
+    padding:4px 12px; border-radius:20px;
+    font-size:.78rem; font-weight:600;
+}
+.integ-ok   { background:#dcfce7; color:#166534; }
+.integ-warn { background:#fef9c3; color:#854d0e; }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty-state {
+    text-align:center; padding:3rem 1rem; color:#9ca3af;
+}
+.empty-state .icon { font-size:2.5rem; margin-bottom:.5rem; }
+
+/* ── Login card ──────────────────────────────────────────────────── */
+.login-wrap {
+    max-width:380px; margin:2rem auto;
+    background:#fff; border:1.5px solid #d4cfc6; border-radius:10px;
+    padding:2rem 2rem 1.5rem; box-shadow:4px 4px 0 #d4cfc6;
+}
+.login-title {
+    font-family:'Syne',sans-serif; font-weight:800;
+    font-size:1.2rem; color:#0d0d0d; margin-bottom:1.5rem; text-align:center;
+}
+</style>"""
 
 
-def _check_password(password: str, config: dict) -> bool:
-    h = hashlib.sha256(password.encode()).hexdigest()
-    ref = hashlib.sha256(config.get("admin_password", "admin1234").encode()).hexdigest()
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _check_password(pwd, config):
+    h   = hashlib.sha256(pwd.encode()).hexdigest()
+    ref = hashlib.sha256(config.get("admin_password","admin1234").encode()).hexdigest()
     return h == ref
 
+def _cat_icon(t):
+    for k, v in [("Achat","🛒"),("Fournisseur","🛒"),("Vente","💰"),("Client","💰"),
+                 ("Frais","🧾"),("Note","🧾"),("Salaire","👥"),("Social","👥"),
+                 ("Immobili","🏗"),("Banque","🏦"),("Tréso","🏦")]:
+        if k.lower() in t.lower(): return v
+    return "📄"
+
+def _build_tree(history):
+    tree = {}
+    for idx, entry in enumerate(history):
+        # Nom client
+        client = entry.get("client","")
+        if not client or client in ("Scan auto","—",""):
+            ocrs = entry.get("ocr_fields",[])
+            client = next((f.get("Emetteur", f.get("Émetteur","")) for f in ocrs if f), "") or "À identifier"
+
+        # Email / téléphone : entrée puis ocr_fields
+        email = entry.get("email","")
+        phone = entry.get("telephone","")
+        for ocr in entry.get("ocr_fields",[]):
+            if not email: email = ocr.get("Email","")
+            if not phone: phone = ocr.get("Telephone", ocr.get("Téléphone",""))
+
+        # Date
+        ds = entry.get("date_iso") or entry.get("date","")
+        try:
+            dt   = datetime.strptime(ds[:16], "%Y-%m-%d %H:%M" if "-" in ds[:4] else "%d/%m/%Y %H:%M")
+            year = str(dt.year)
+            mth  = dt.strftime("%m — %B")
+        except Exception:
+            year, mth = "—", "—"
+
+        if client not in tree:
+            tree[client] = {"meta": {"email":email,"telephone":phone,"nb":0,"last":entry.get("date","")}, "years":{}}
+        else:
+            if email and not tree[client]["meta"].get("email"): tree[client]["meta"]["email"] = email
+            if phone and not tree[client]["meta"].get("telephone"): tree[client]["meta"]["telephone"] = phone
+
+        node = tree[client]
+        node["meta"]["nb"] += len(entry.get("fichiers",[]))
+        node["meta"]["last"] = entry.get("date", node["meta"]["last"])
+
+        if year not in node["years"]: node["years"][year] = {}
+        if mth not in node["years"][year]: node["years"][year][mth] = []
+
+        fnames  = entry.get("fichiers",[])
+        dlinks  = {l["name"]: l["url"] for l in entry.get("drive_links",[]) if l.get("url")}
+        ocr_lst = entry.get("ocr_fields",[])
+
+        for fpos, fname in enumerate(fnames):
+            ocr = ocr_lst[fpos] if fpos < len(ocr_lst) else {}
+            node["years"][year][mth].append({
+                "filename":    fname,
+                "type":        entry.get("type","—"),
+                "date":        entry.get("date",""),
+                "drive_url":   dlinks.get(fname,""),
+                "montant":     ocr.get("Montant TTC",""),
+                "num":         ocr.get("N° Facture",""),
+                "entry_index": idx,
+                "file_pos":    fpos,
+            })
+    return tree
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Page principale
+# ─────────────────────────────────────────────────────────────────────────────
 
 def render_admin_page(config: dict):
+    st.markdown(ADMIN_CSS, unsafe_allow_html=True)
+
     if "admin_logged" not in st.session_state:
         st.session_state.admin_logged = False
 
-    # ── Login ──────────────────────────────────────────────────────────────
+    # ── Login ──────────────────────────────────────────────────────────────────
     if not st.session_state.admin_logged:
-        st.markdown("""
-        <div class="card">
-            <div class="card-title">🔐 Connexion espace comptable</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        pwd = st.text_input("Mot de passe", type="password", placeholder="••••••••")
-        if st.button("Se connecter"):
+        st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
+        st.markdown('<p class="login-title">🔐 Espace comptable</p>', unsafe_allow_html=True)
+        pwd = st.text_input("Mot de passe", type="password", placeholder="••••••••",
+                            label_visibility="collapsed")
+        if st.button("Se connecter", use_container_width=True):
             if _check_password(pwd, config):
                 st.session_state.admin_logged = True
+                st.query_params["tab"] = "admin"
                 st.rerun()
             else:
                 st.error("Mot de passe incorrect.")
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # ── Dashboard ──────────────────────────────────────────────────────────
+    # ── Toast post-suppression ─────────────────────────────────────────────────
+    if st.session_state.get("_del_toast"):
+        st.toast(f"🗑️ {st.session_state.pop('_del_toast')} supprimé")
+
+    # ── Header ─────────────────────────────────────────────────────────────────
+    cabinet = config.get("cabinet_name","Cabinet")
+    now_str = datetime.now().strftime("%d/%m/%Y")
     st.markdown(f"""
-    <div class="card">
-        <div class="card-title">📊 Tableau de bord — {config.get('cabinet_name','')}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="dash-header">
+        <div>
+            <p class="dash-title">📁 {cabinet}</p>
+            <p class="dash-sub">Tableau de bord · {now_str}</p>
+        </div>
+    </div>""", unsafe_allow_html=True)
 
     history = get_history()
-    nb_envois    = len(history)
-    nb_clients   = len(set(h["client"] for h in history)) if history else 0
-    nb_fichiers  = sum(h.get("nb_fichiers", 0) for h in history)
-    nb_drive     = sum(1 for h in history if h.get("drive_links"))
-    nb_ocr       = sum(1 for h in history if any(h.get("ocr_fields", [])))
+    tree    = _build_tree(history)
+
+    # ── Stats ───────────────────────────────────────────────────────────────────
+    nb_clients  = len(tree)
+    nb_factures = sum(c["meta"]["nb"] for c in tree.values())
+    nb_drive    = sum(1 for e in history for l in e.get("drive_links",[]) if l.get("url"))
+    nb_envois   = len(history)
 
     st.markdown(f"""
-    <div class="stat-row">
-        <div class="stat-box"><div class="stat-num">{nb_envois}</div><div class="stat-label">Envois reçus</div></div>
-        <div class="stat-box"><div class="stat-num">{nb_clients}</div><div class="stat-label">Clients actifs</div></div>
-        <div class="stat-box"><div class="stat-num">{nb_fichiers}</div><div class="stat-label">Fichiers reçus</div></div>
-        <div class="stat-box"><div class="stat-num">{nb_drive}</div><div class="stat-label">Dépôts Drive</div></div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-n">{nb_clients}</div><div class="stat-l">Clients</div></div>
+        <div class="stat-card"><div class="stat-n">{nb_factures}</div><div class="stat-l">Factures</div></div>
+        <div class="stat-card"><div class="stat-n">{nb_drive}</div><div class="stat-l">Sur Drive</div></div>
+        <div class="stat-card"><div class="stat-n">{nb_envois}</div><div class="stat-l">Envois</div></div>
+    </div>""", unsafe_allow_html=True)
 
-    # ── Intégrations actives ──────────────────────────────────────────────
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        badge = "badge-ok" if config.get("smtp_user") else "badge-warn"
-        label = "Actif" if config.get("smtp_user") else "Non configuré"
-        st.markdown(f'📧 Email SMTP &nbsp; <span class="{badge}">{label}</span>', unsafe_allow_html=True)
-    with col_b:
-        badge = "badge-ok" if config.get("drive_enabled") else "badge-warn"
-        label = "Actif" if config.get("drive_enabled") else "Désactivé"
-        st.markdown(f'☁️ Google Drive &nbsp; <span class="{badge}">{label}</span>', unsafe_allow_html=True)
-    with col_c:
-        badge = "badge-ok" if config.get("ocr_enabled") else "badge-warn"
-        label = "Actif" if config.get("ocr_enabled") else "Désactivé"
-        st.markdown(f'🔍 OCR &nbsp; <span class="{badge}">{label}</span>', unsafe_allow_html=True)
+    # ── Recherche ───────────────────────────────────────────────────────────────
+    search = st.text_input("🔍", placeholder="Rechercher un client, email, téléphone…",
+                           label_visibility="collapsed")
 
-    st.divider()
-
-    # ── Historique ─────────────────────────────────────────────────────────
-    if not history:
-        st.info("Aucun envoi reçu pour l'instant. L'historique s'affichera ici.")
-    else:
-        st.subheader("Historique des envois")
-
-        # Filtres
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            search = st.text_input("🔍 Rechercher un client", placeholder="Dupont SARL")
-        with col_f2:
-            types = ["Tous"] + list(set(h["type"] for h in history))
-            filtre_type = st.selectbox("Filtrer par type", types)
-
-        filtered = history
-        if search:
-            filtered = [h for h in filtered if search.lower() in h["client"].lower()]
-        if filtre_type != "Tous":
-            filtered = [h for h in filtered if h["type"] == filtre_type]
-
-        # Table
-        rows = []
-        for h in reversed(filtered):
-            drive_col = "✅" if h.get("drive_links") else "—"
-            ocr_col   = "✅" if any(h.get("ocr_fields", [])) else "—"
-            rows.append({
-                "Date":       h["date"],
-                "Client":     h["client"],
-                "Email":      h["email"],
-                "Type":       h["type"],
-                "Période":    h["periode"],
-                "Fichiers":   ", ".join(h["fichiers"]),
-                "Drive":      drive_col,
-                "OCR":        ocr_col,
-                "Statut":     h["statut"],
-            })
-
-        df = pd.DataFrame(rows)
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-        # Détail OCR par envoi
-        with st.expander("🔍 Détail OCR des envois"):
-            for h in reversed(filtered):
-                ocr_fields_list = h.get("ocr_fields", [])
-                if any(ocr_fields_list):
-                    st.markdown(f"**{h['date']} — {h['client']}**")
-                    for i, fields in enumerate(ocr_fields_list):
-                        if fields:
-                            fname = h["fichiers"][i] if i < len(h["fichiers"]) else f"Fichier {i+1}"
-                            st.markdown(f"*{fname}*")
-                            st.json(fields)
-
-        # Export CSV
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "⬇️  Exporter en CSV",
-            data=csv,
-            file_name=f"facturescan_export_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-        )
-
-    st.divider()
-
-    # ── Guide config ──────────────────────────────────────────────────────
-    with st.expander("⚙️  Guide de configuration — secrets.toml"):
+    # ── Liste clients ───────────────────────────────────────────────────────────
+    if not tree:
         st.markdown("""
-### Configuration minimale (single cabinet)
-```toml
-CABINET_NAME    = "Cabinet Dupont & Associés"
-COMPTABLE_EMAIL = "comptable@cabinet.fr"
-SMTP_HOST       = "smtp.gmail.com"
-SMTP_PORT       = 587
-SMTP_USER       = "expediteur@gmail.com"
-SMTP_PASSWORD   = "xxxx xxxx xxxx xxxx"   # App password Gmail
-ADMIN_PASSWORD  = "motdepasse_fort"
-DRIVE_ENABLED   = false
-OCR_ENABLED     = false
-```
+        <div class="empty-state">
+            <div class="icon">📭</div>
+            <div>Aucune facture reçue pour l'instant.</div>
+            <div style="font-size:.8rem;margin-top:4px">
+                Les factures scannées apparaîtront ici automatiquement.
+            </div>
+        </div>""", unsafe_allow_html=True)
+    else:
+        filtered = {
+            n: d for n, d in sorted(tree.items())
+            if not search
+            or search.lower() in n.lower()
+            or search.lower() in d["meta"].get("email","").lower()
+            or search.lower() in d["meta"].get("telephone","").lower()
+        }
 
-### Multi-cabinets
-```toml
-[cabinets.dupont]
-CABINET_NAME    = "Cabinet Dupont"
-COMPTABLE_EMAIL = "dupont@cabinet.fr"
-SMTP_USER       = "noreply@cabinet.fr"
-SMTP_PASSWORD   = "xxxx xxxx xxxx xxxx"
-ADMIN_PASSWORD  = "dupont_admin"
+        if not filtered:
+            st.info(f"Aucun résultat pour « {search} »")
 
-[cabinets.martin]
-CABINET_NAME    = "Cabinet Martin & Fils"
-COMPTABLE_EMAIL = "martin@cabinet.fr"
-SMTP_USER       = "noreply@cabinet.fr"
-SMTP_PASSWORD   = "xxxx xxxx xxxx xxxx"
-ADMIN_PASSWORD  = "martin_admin"
-```
+        for cname, cdata in filtered.items():
+            meta  = cdata["meta"]
+            email = meta.get("email","")
+            phone = meta.get("telephone","")
+            nb    = meta["nb"]
+            last  = meta.get("last","")[:10]
 
-### Activer Google Drive
-```toml
-DRIVE_ENABLED          = true
-DRIVE_ROOT_FOLDER_ID   = "1AbCdEfGhIjKlMnOpQrStUvWxYz"
-DRIVE_CREDENTIALS_JSON = '''{ "type": "service_account", ... }'''
-```
+            with st.expander(f"🏢 {cname} — {nb} fichier(s) · {last}", expanded=False):
 
-### Activer l'OCR
-```toml
-OCR_ENABLED = true
-```
-> ⚠️ Nécessite `pytesseract`, `Pillow`, `pdfminer.six` dans requirements.txt
-> et Tesseract installé sur le serveur (voir README).
+                # Contact pills
+                pills = ""
+                if email: pills += f'<span class="contact-pill">✉ <a href="mailto:{email}">{email}</a></span>'
+                if phone: pills += f'<span class="contact-pill">📞 {phone}</span>'
+                pills += f'<span class="contact-pill">📂 {nb} fichier(s)</span>'
+                st.markdown(f'<div class="contact-row">{pills}</div>', unsafe_allow_html=True)
 
-### Gmail — Mot de passe d'application
-1. Activez la vérification en 2 étapes → [myaccount.google.com/security](https://myaccount.google.com/security)
-2. Créez un mot de passe d'application → [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-3. Copiez le code 16 caractères dans `SMTP_PASSWORD`
-        """)
+                # Arborescence
+                for year in sorted(cdata["years"], reverse=True):
+                    st.markdown(f'<div class="year-badge">📅 {year}</div>', unsafe_allow_html=True)
 
-    if st.button("🚪 Déconnexion"):
-        st.session_state.admin_logged = False
-        st.rerun()
+                    for mth in sorted(cdata["years"][year], reverse=True):
+                        invs = cdata["years"][year][mth]
+                        st.markdown(
+                            f'<div class="month-label">└─ {mth} &nbsp;({len(invs)} fichier(s))</div>',
+                            unsafe_allow_html=True
+                        )
+
+                        for inv in invs:
+                            icon = _cat_icon(inv["type"])
+                            c1, c2, c3, c4, c5, c6 = st.columns([.5, 3.5, 2, 1.5, 1.2, .6])
+
+                            with c1: st.markdown(f"<div style='font-size:1.1rem;padding-top:4px'>{icon}</div>", unsafe_allow_html=True)
+                            with c2:
+                                name = inv["filename"][:35] + "…" if len(inv["filename"]) > 35 else inv["filename"]
+                                st.markdown(f"**{name}**")
+                                if inv.get("drive_url"):
+                                    st.markdown(f"[☁️ Drive]({inv['drive_url']})")
+                            with c3: st.caption(inv["type"])
+                            with c4: st.markdown(f"**{inv['montant']}**" if inv["montant"] else "—")
+                            with c5: st.caption(inv["date"][:10] if inv["date"] else "")
+                            with c6:
+                                if st.button("🗑️", key=f"d_{inv['entry_index']}_{inv['file_pos']}",
+                                             help="Supprimer"):
+                                    delete_file_entry(inv["entry_index"], inv["filename"])
+                                    st.session_state["_del_toast"] = inv["filename"]
+                                    st.query_params["tab"] = "admin"
+                                    st.rerun()
+
+    st.divider()
+
+    # ── Statut intégrations ─────────────────────────────────────────────────────
+    with st.expander("⚙️ Intégrations & Configuration"):
+        smtp_ok  = bool(config.get("smtp_user"))
+        drive_ok = config.get("drive_enabled", False)
+        ocr_ok   = bool(config.get("google_vision_key"))
+
+        st.markdown(f"""
+        <div class="integ-row">
+            <span class="integ-pill {'integ-ok' if smtp_ok else 'integ-warn'}">
+                📧 SMTP {'Actif' if smtp_ok else 'Non configuré'}
+            </span>
+            <span class="integ-pill {'integ-ok' if drive_ok else 'integ-warn'}">
+                ☁️ Drive {'Actif' if drive_ok else 'Désactivé'}
+            </span>
+            <span class="integ-pill {'integ-ok' if ocr_ok else 'integ-warn'}">
+                🔍 OCR {'Google Vision' if ocr_ok else 'Non configuré'}
+            </span>
+        </div>""", unsafe_allow_html=True)
+
+        if not drive_ok:
+            st.warning("Google Drive désactivé — activez-le dans secrets.toml pour un stockage permanent.")
+        if not ocr_ok:
+            st.warning("Clé Google Vision manquante — l'extraction OCR sera limitée.")
+
+    col_logout, _ = st.columns([1, 3])
+    with col_logout:
+        if st.button("🚪 Déconnexion", use_container_width=True):
+            st.session_state.admin_logged = False
+            st.query_params.clear()
+            st.rerun()
