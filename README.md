@@ -1,4 +1,4 @@
-# 📄 FactureScan Pro — v2
+# 📄 FactureScan Pro
 
 Application Streamlit permettant aux clients d'un cabinet comptable de scanner
 et transmettre leurs factures en quelques clics — avec Google Drive, OCR et multi-cabinets.
