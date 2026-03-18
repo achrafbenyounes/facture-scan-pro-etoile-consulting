@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FactureScan Pro — Hors ligne</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f5f2eb;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border: 1.5px solid #d4cfc6;
+      border-radius: 6px;
+      padding: 40px 32px;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 4px 4px 0 #d4cfc6;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #0d0d0d;
+      margin-bottom: 24px;
+    }
+    .logo span { color: #1a472a; }
+    .icon { font-size: 3rem; margin-bottom: 16px; }
+    h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      color: #0d0d0d;
+      margin-bottom: 12px;
+    }
+    p { color: #6b6560; font-size: 0.9rem; line-height: 1.6; }
+    button {
+      margin-top: 24px;
+      background: #0d0d0d;
+      color: #f5f2eb;
+      border: none;
+      border-radius: 3px;
+      padding: 12px 28px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:active { background: #1a472a; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Facture<span>Scan</span> Pro</div>
+    <div class="icon">📡</div>
+    <h2>Pas de connexion internet</h2>
+    <p>Vérifiez votre connexion Wi-Fi ou données mobiles, puis réessayez.</p>
+    <p style="margin-top:8px;">Vos fichiers ne seront pas perdus.</p>
+    <button onclick="window.location.reload()">↺ Réessayer</button>
+  </div>
+</body>
+</html>

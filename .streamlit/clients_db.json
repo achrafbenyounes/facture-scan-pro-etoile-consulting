@@ -1,0 +1,13 @@
+{
+  "ENTREPRISE_ABC": {
+    "name": "ENTREPRISE ABC",
+    "siret": "12345678900012",
+    "siren": "123456789",
+    "email": "contact@enterpriseabc.fr",
+    "phone": "",
+    "seen_count": 1,
+    "first_seen": "2026-03-18",
+    "last_seen": "2026-03-18",
+    "is_new": true
+  }
+}
