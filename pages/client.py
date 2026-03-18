@@ -4,7 +4,6 @@ Zéro saisie, zéro liste clients dans secrets.toml.
 L'IA lit tout depuis la facture.
 """
 import streamlit as st
-import streamlit.components.v1 as components
 import time
 from datetime import datetime
 
@@ -19,24 +18,7 @@ from utils.history import log_submission
 # CSS mobile-first
 # ────────────────────────────────────────────────────────────────────────────
 MOBILE_CSS = """<style>
-.cam-btn-wrap {
-    display:flex; flex-direction:column; align-items:center;
-    justify-content:center; padding:2rem 1rem;
-}
-.cam-btn {
-    display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:10px;
-    background:#1a472a; color:#f5f2eb; border:none; border-radius:50%;
-    width:160px; height:160px;
-    font-family:'Syne',sans-serif; font-weight:800; font-size:0.85rem;
-    letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
-    box-shadow:0 8px 24px rgba(26,71,42,.35),0 0 0 6px rgba(26,71,42,.12);
-    transition:transform .15s ease,box-shadow .15s ease;
-    -webkit-tap-highlight-color:transparent;
-}
-.cam-btn:active { transform:scale(.95); box-shadow:0 4px 12px rgba(26,71,42,.4); }
-.cam-btn .cam-icon { font-size:3rem; line-height:1; }
-.cam-btn-hint { margin-top:1rem; font-size:.8rem; color:#6b6560; text-align:center; letter-spacing:.06em; text-transform:uppercase; }
+/* Styles interface mobile */
 
 .result-card {
     background:#fff; border:1.5px solid #d4cfc6; border-radius:6px;
@@ -97,41 +79,6 @@ MOBILE_CSS = """<style>
 }
 </style>"""
 
-CAMERA_COMPONENT = """
-<div class="cam-btn-wrap">
-  <label for="cam-input">
-    <div class="cam-btn">
-      <span class="cam-icon">📷</span>
-      <span>Scanner</span>
-    </div>
-  </label>
-  <input type="file" id="cam-input" accept="image/*,application/pdf"
-    capture="environment" multiple style="display:none"
-    onchange="handleScan(this.files)">
-  <p class="cam-btn-hint">Appuyez pour ouvrir la caméra</p>
-</div>
-<div id="preview-zone" style="padding:0 8px;"></div>
-<script>
-function handleScan(files) {
-  const zone = document.getElementById('preview-zone');
-  zone.innerHTML = '';
-  Array.from(files||[]).forEach(file => {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'margin-bottom:10px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;background:#f9fafb;';
-    if (file.type.startsWith('image/')) {
-      const img = document.createElement('img');
-      img.style.cssText = 'width:100%;max-height:200px;object-fit:cover;display:block;';
-      img.src = URL.createObjectURL(file);
-      wrap.appendChild(img);
-    }
-    const info = document.createElement('div');
-    info.style.cssText = 'padding:8px 12px;font-family:sans-serif;font-size:13px;color:#374151;';
-    info.innerHTML = '<strong>'+file.name+'</strong><br>'
-      +'<span style="color:#9ca3af;">'+(file.size/1024).toFixed(0)+' Ko — Analyse en cours…</span>';
-    wrap.appendChild(info); zone.appendChild(wrap);
-  });
-}
-</script>"""
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -142,14 +89,14 @@ def _client_badge(method: str, confidence: float, name: str, is_new: bool) -> st
     if name == "Inconnu" or method == "none":
         return '<span class="badge-err">⚠ Non identifié → À classer</span>'
     if is_new:
-        return f'<span class="badge-new">✦ Nouveau · {name}</span>'
+        return f'<span class="badge-new">✦ Nouveau client · {name}</span>'
     if method in ("siret_db", "siret"):
-        return f'<span class="badge-ok">✓ SIRET · {name}</span>'
+        return f'<span class="badge-ok">✓ {name}</span>'
     if method == "name_db":
-        return f'<span class="badge-ok">✓ Connu · {name}</span>'
+        return f'<span class="badge-ok">✓ {name}</span>'
     pct = int(confidence * 100)
     cls = "badge-ok" if pct >= 80 else "badge-warn"
-    return f'<span class="{cls}">~ {pct}% · {name}</span>'
+    return f'<span class="{cls}">{name}</span>'
 
 def _cat_icon(folder: str) -> str:
     for prefix, icon in [("1_","🛒"),("2_","💰"),("3_","🧾"),("4_","👥"),("5_","🏗"),("6_","🏦"),("0_","📥")]:
@@ -298,23 +245,78 @@ def render_client_page(config: dict):
 
     # ── Interface scan ─────────────────────────────────────────────────────
     cabinet_name = config.get("cabinet_name", "votre comptable")
+
+    # CSS pour transformer le file_uploader en gros bouton caméra sur mobile
+    st.markdown("""
+    <style>
+    /* Cache le drag&drop desktop, garde seulement le bouton sur mobile */
+    @media (max-width: 768px) {
+        [data-testid="stFileUploaderDropzone"] > div:first-child {
+            display: none !important;
+        }
+        [data-testid="stFileUploaderDropzone"] {
+            border: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+        }
+    }
+    /* Bouton Browse Files → style caméra */
+    [data-testid="stFileUploaderDropzone"] button {
+        width: 100% !important;
+        background: #1a472a !important;
+        color: #f5f2eb !important;
+        border: none !important;
+        border-radius: 6px !important;
+        padding: 1.2rem 2rem !important;
+        font-family: 'Syne', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+        letter-spacing: 0.05em !important;
+        cursor: pointer !important;
+        margin-top: 0.5rem !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button:hover {
+        background: #2d6a4f !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown(f"""
-    <div style="text-align:center;padding:.5rem 0 .2rem;">
+    <div style="text-align:center;padding:.8rem 0 .4rem;">
         <p style="color:#6b6560;font-size:.85rem;margin:0;">
-            Scannez une facture · Classement automatique chez
+            📷 Scannez une facture · Classement automatique chez
             <strong>{cabinet_name}</strong>
         </p>
     </div>""", unsafe_allow_html=True)
 
-    components.html(CAMERA_COMPONENT, height=280)
-
-    st.markdown('<p style="text-align:center;color:#9ca3af;font-size:.75rem;margin:0 0 6px;">— ou choisissez un fichier depuis votre galerie —</p>',
-                unsafe_allow_html=True)
-
     files = st.file_uploader(
-        "Fichiers", type=["pdf","jpg","jpeg","png","heic","webp"],
-        accept_multiple_files=True, label_visibility="collapsed",
+        "📷  Prendre une photo ou choisir un fichier",
+        type=["pdf", "jpg", "jpeg", "png", "heic", "webp"],
+        accept_multiple_files=True,
     )
+
+    # Sur mobile : ouvre directement la caméra arrière
+    st.markdown("""
+    <script>
+    (function() {
+        function patchInput() {
+            var inputs = window.parent.document.querySelectorAll(
+                '[data-testid="stFileUploaderDropzone"] input[type="file"]'
+            );
+            inputs.forEach(function(inp) {
+                if (!inp.hasAttribute("capture")) {
+                    inp.setAttribute("capture", "environment");
+                }
+            });
+        }
+        // Patch immédiat + retry pour les reruns Streamlit
+        patchInput();
+        setTimeout(patchInput, 500);
+        setTimeout(patchInput, 1500);
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
     if not files:
         return
 
@@ -372,36 +374,46 @@ def render_client_page(config: dict):
         if not config.get("smtp_user") or not config.get("smtp_password"):
             email_error = "SMTP_USER ou SMTP_PASSWORD manquant dans secrets.toml"
         else:
-            ocr_list    = [r["ocr"] for r in all_analyses]
-            drive_links = [{"name": r["file"].name, "url": r["drive"].get("web_link","")}
-                           for r in all_analyses if r["drive"].get("success")]
-            note_parts = []
-            if new_clients:
-                note_parts.append(f"✦ Nouveaux clients détectés : {', '.join(new_clients)}")
-            if fallback_files:
-                note_parts.append(f"⚠️ Non classés : {', '.join(fallback_files)}")
-            client_info = {
-                "nom":      "Scan automatique",
-                "email":    "",
-                "type_doc": "Scan mobile automatique",
-                "periode":  datetime.now().strftime("%B %Y"),
-                "note":     " | ".join(note_parts),
-            }
-            send_to_accountant(config, client_info, [r["file"] for r in all_analyses], ocr_list, drive_links)
-
-            # Confirmation au client si son email est détecté sur la facture
+            # ── Un email par facture avec les vraies données OCR ──────────────
             for r in all_analyses:
-                detected_email = r["ocr"].get("client_email", "")
+                ocr      = r["ocr"]
+                analysis = r["analysis"]
+                client   = analysis["client"]
+                category = analysis["category"]
+                fields   = ocr.get("fields", {})
+
+                # Construire client_info depuis les données OCR réelles
+                client_info = {
+                    "nom":       client.get("name", fields.get("Émetteur", "Inconnu")),
+                    "email":     ocr.get("client_email", ""),
+                    "telephone": fields.get("Téléphone", "Non renseigné"),
+                    "type_doc":  category.get("label", "Facture"),
+                    "periode":   fields.get("Date", datetime.now().strftime("%d/%m/%Y")),
+                    "note":      (
+                        f"N° Facture : {fields.get('N° Facture','')} | "
+                        f"Montant TTC : {fields.get('Montant TTC','')} | "
+                        f"SIRET : {ocr.get('siret','')}"
+                    ).strip(" |"),
+                }
+
+                drive_links = []
+                if r["drive"].get("success"):
+                    drive_links = [{"name": r["file"].name, "url": r["drive"].get("web_link","")}]
+
+                # Email au comptable
+                send_to_accountant(
+                    config, client_info,
+                    [r["file"]], [ocr], drive_links
+                )
+
+                # Confirmation au client si email détecté sur la facture
+                detected_email = ocr.get("client_email", "")
                 if detected_email:
                     try:
-                        ci = {
-                            "nom":      r["analysis"]["client"].get("name", "Client"),
-                            "email":    detected_email,
-                            "type_doc": r["analysis"]["category"].get("label", "Facture"),
-                            "periode":  datetime.now().strftime("%B %Y"),
-                            "note":     "",
-                        }
-                        send_confirmation_to_client(config, ci, [r["file"]], [r["ocr"]], detected_email)
+                        send_confirmation_to_client(
+                            config, client_info,
+                            [r["file"]], [ocr], detected_email
+                        )
                     except Exception:
                         pass
 
@@ -410,12 +422,27 @@ def render_client_page(config: dict):
     except Exception as e:
         email_error = str(e)
 
-    # ── Log ────────────────────────────────────────────────────────────────
-    log_submission(
-        {"nom":"Scan auto","email":"","type_doc":"Mobile scan","periode":datetime.now().strftime("%B %Y"),"note":""},
-        [f.name for f in files], [],
-        [r["ocr"] for r in all_analyses],
-    )
+    # ── Log — une entrée par facture avec les vraies données OCR ────────────
+    for r in all_analyses:
+        ocr      = r["ocr"]
+        analysis = r["analysis"]
+        client   = analysis["client"]
+        fields   = ocr.get("fields", {})
+
+        log_submission(
+            {
+                "nom":       client.get("name", fields.get("Émetteur", "Inconnu")),
+                "email":     ocr.get("client_email", ""),
+                "telephone": fields.get("Téléphone", ""),
+                "type_doc":  analysis["category"].get("label", "Facture"),
+                "periode":   fields.get("Date", datetime.now().strftime("%d/%m/%Y")),
+                "note":      fields.get("N° Facture", ""),
+            },
+            [r["file"].name],
+            [{"name": r["file"].name, "url": r["drive"].get("web_link", "")}]
+            if r["drive"].get("success") else [],
+            [ocr],
+        )
 
     st.session_state.scan_done         = True
     st.session_state.scan_results_html = results_html
