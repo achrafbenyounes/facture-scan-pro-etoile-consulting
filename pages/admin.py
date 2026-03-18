@@ -233,25 +233,29 @@ def render_admin_page(config: dict):
 
     # ── Login ──────────────────────────────────────────────────────────────────
     if not st.session_state.admin_logged:
-        _, col, _ = st.columns([1, 2, 1])
-        with col:
-            st.markdown("""
-            <div style="background:#fff;border:1.5px solid #d4cfc6;border-radius:10px;
-                        padding:2rem;box-shadow:4px 4px 0 #d4cfc6;text-align:center;
-                        margin-top:1rem;">
-                <p style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;
-                           color:#0d0d0d;margin-bottom:1.5rem;">🔐 Espace comptable</p>
-            </div>
-            """, unsafe_allow_html=True)
-            pwd = st.text_input("Mot de passe", type="password",
-                                placeholder="Entrez votre mot de passe")
-            if st.button("Se connecter", use_container_width=True):
-                if _check_password(pwd, config):
-                    st.session_state.admin_logged = True
-                    st.query_params["tab"] = "admin"
-                    st.rerun()
-                else:
-                    st.error("Mot de passe incorrect.")
+        st.markdown("""
+        <style>
+        .login-outer {
+            max-width:360px; margin:1.5rem auto 0;
+            background:#fff; border:1.5px solid #d4cfc6; border-radius:10px;
+            padding:1.8rem 1.5rem 0.5rem; box-shadow:4px 4px 0 #d4cfc6;
+        }
+        .login-outer h3 {
+            font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem;
+            color:#0d0d0d; margin:0 0 1.2rem; text-align:center;
+        }
+        </style>
+        <div class="login-outer"><h3>🔐 Espace comptable</h3></div>
+        """, unsafe_allow_html=True)
+        pwd = st.text_input("Mot de passe", type="password",
+                            placeholder="Entrez votre mot de passe")
+        if st.button("Se connecter", use_container_width=True):
+            if _check_password(pwd, config):
+                st.session_state.admin_logged = True
+                st.query_params["tab"] = "admin"
+                st.rerun()
+            else:
+                st.error("Mot de passe incorrect.")
         return
 
     # ── Toast post-suppression ─────────────────────────────────────────────────
@@ -384,7 +388,7 @@ def render_admin_page(config: dict):
         if not drive_ok:
             st.warning("Google Drive désactivé — activez-le dans secrets.toml pour un stockage permanent.")
         if not ocr_ok:
-            st.warning("La clé Google Vision manquante — l'extraction OCR sera limitée.")
+            st.warning("Clé Google Vision manquante — l'extraction OCR sera limitée.")
 
     col_logout, _ = st.columns([1, 3])
     with col_logout:

@@ -1,5 +1,5 @@
 """
-Page client -— Scan universel Android/iPhone/Desktop.
+Page client — Scan universel Android/iPhone/Desktop.
 Upload natif Streamlit : fonctionne sur tous les appareils.
 """
 import streamlit as st
@@ -21,8 +21,8 @@ CLIENT_CSS = """<style>
 [data-testid="stFileUploaderDropzone"] {
     background: #1a472a !important;
     border: none !important;
-    border-radius: 12px !important;
-    padding: 2rem 1rem !important;
+    border-radius: 10px !important;
+    padding: 1.2rem 1rem !important;
     cursor: pointer !important;
 }
 [data-testid="stFileUploaderDropzone"] > div {
@@ -31,12 +31,12 @@ CLIENT_CSS = """<style>
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span {
     color: #f5f2eb !important;
     font-family: 'Syne', sans-serif !important;
-    font-size: 1.1rem !important;
+    font-size: 0.9rem !important;
     font-weight: 700 !important;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] > div > small {
     color: #a7c4b0 !important;
-    font-size: 0.8rem !important;
+    font-size: 0.72rem !important;
 }
 [data-testid="stFileUploaderDropzone"] button {
     background: #f5f2eb !important;
@@ -45,8 +45,9 @@ CLIENT_CSS = """<style>
     border-radius: 6px !important;
     font-family: 'Syne', sans-serif !important;
     font-weight: 700 !important;
-    padding: 0.5rem 1.5rem !important;
-    margin-top: 0.8rem !important;
+    font-size: 0.82rem !important;
+    padding: 0.4rem 1.2rem !important;
+    margin-top: 0.5rem !important;
 }
 /* ── Résultat carte ───────────────────────────────────────────────── */
 .r-card {
