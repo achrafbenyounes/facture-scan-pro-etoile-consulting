@@ -1,5 +1,5 @@
 """
-Espace comptable —- Dashboard responsive PC et mobile.
+Espace comptable — Dashboard responsive PC et mobile.
 """
 import hashlib
 import streamlit as st
@@ -233,18 +233,25 @@ def render_admin_page(config: dict):
 
     # ── Login ──────────────────────────────────────────────────────────────────
     if not st.session_state.admin_logged:
-        st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
-        st.markdown('<p class="login-title">🔐 Espace comptable</p>', unsafe_allow_html=True)
-        pwd = st.text_input("Mot de passe", type="password", placeholder="••••••••",
-                            label_visibility="collapsed")
-        if st.button("Se connecter", use_container_width=True):
-            if _check_password(pwd, config):
-                st.session_state.admin_logged = True
-                st.query_params["tab"] = "admin"
-                st.rerun()
-            else:
-                st.error("Mot de passe incorrect.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        _, col, _ = st.columns([1, 2, 1])
+        with col:
+            st.markdown("""
+            <div style="background:#fff;border:1.5px solid #d4cfc6;border-radius:10px;
+                        padding:2rem;box-shadow:4px 4px 0 #d4cfc6;text-align:center;
+                        margin-top:1rem;">
+                <p style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;
+                           color:#0d0d0d;margin-bottom:1.5rem;">🔐 Espace comptable</p>
+            </div>
+            """, unsafe_allow_html=True)
+            pwd = st.text_input("Mot de passe", type="password",
+                                placeholder="Entrez votre mot de passe")
+            if st.button("Se connecter", use_container_width=True):
+                if _check_password(pwd, config):
+                    st.session_state.admin_logged = True
+                    st.query_params["tab"] = "admin"
+                    st.rerun()
+                else:
+                    st.error("Mot de passe incorrect.")
         return
 
     # ── Toast post-suppression ─────────────────────────────────────────────────
@@ -377,7 +384,7 @@ def render_admin_page(config: dict):
         if not drive_ok:
             st.warning("Google Drive désactivé — activez-le dans secrets.toml pour un stockage permanent.")
         if not ocr_ok:
-            st.warning("Clé Google Vision manquante — l'extraction OCR sera limitée.")
+            st.warning("La clé Google Vision manquante — l'extraction OCR sera limitée.")
 
     col_logout, _ = st.columns([1, 3])
     with col_logout:
