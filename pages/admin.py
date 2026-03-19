@@ -129,37 +129,49 @@ ADMIN_CSS = """<style>
 .integ-ok   { background:#dcfce7; color:#166534; }
 .integ-warn { background:#fef9c3; color:#854d0e; }
 
-/* ── Boutons action (download / delete) dans les lignes facture ─── */
-/* Cibler les boutons dans les dernières colonnes des lignes facture */
-[data-testid="stDownloadButton"] button,
+/* ── Boutons action (téléchargement / suppression) ──────────────── */
+[data-testid="stDownloadButton"],
+[data-testid="stDownloadButton"] button {
+    width: 100% !important;
+}
 [data-testid="stDownloadButton"] > button {
     background: #f0f9ff !important;
     color: #1e40af !important;
     border: 1px solid #bfdbfe !important;
     border-radius: 6px !important;
-    padding: 2px 6px !important;
-    font-size: .8rem !important;
+    font-size: .85rem !important;
     width: 100% !important;
-    min-height: 32px !important;
+    min-height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+    background: #dbeafe !important;
+}
+/* Colonnes actions : centrage vertical */
+[data-testid="stHorizontalBlock"] > div:nth-last-child(-n+2) {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
 }
-[data-testid="stDownloadButton"] button:hover {
-    background: #dbeafe !important;
-}
-/* Bouton supprimer */
-div[data-testid="stButton"] button[kind="secondary"] {
+/* Bouton supprimer : carré centré rouge */
+[data-testid="stHorizontalBlock"] > div:last-child [data-testid="stButton"] > button {
     background: #fff7f7 !important;
     color: #991b1b !important;
     border: 1px solid #fecaca !important;
     border-radius: 6px !important;
-    padding: 2px 6px !important;
-    font-size: .8rem !important;
+    font-size: .85rem !important;
     width: 100% !important;
-    min-height: 32px !important;
+    min-height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
 }
-div[data-testid="stButton"] button[kind="secondary"]:hover {
+[data-testid="stHorizontalBlock"] > div:last-child [data-testid="stButton"] > button:hover {
     background: #fee2e2 !important;
 }
 
@@ -384,7 +396,7 @@ def render_admin_page(config: dict):
 
                             with c1:
                                 st.markdown(
-                                    f"<div style='font-size:1rem;padding-top:6px;text-align:center'>{icon}</div>",
+                                    f"<div style='font-size:1rem;padding-top:2px;text-align:center'>{icon}</div>",
                                     unsafe_allow_html=True
                                 )
                             with c2:
@@ -404,7 +416,7 @@ def render_admin_page(config: dict):
                             with c6:
                                 fbytes, fmime = get_file_bytes(inv["entry_index"], inv["filename"])
                                 if fbytes:
-                                    # Fichier en session → téléchargement direct
+                                    # ✅ Persisté en base64 → toujours disponible
                                     st.download_button(
                                         label="⬇️",
                                         data=fbytes,
@@ -412,37 +424,39 @@ def render_admin_page(config: dict):
                                         mime=fmime,
                                         key=f"dl_{inv['entry_index']}_{inv['file_pos']}",
                                         help=f"Télécharger {inv['filename']}",
+                                        use_container_width=True,
                                     )
-                                    # Conserver l'onglet admin après dl
-                                    st.session_state["active_tab"] = "admin"
                                 elif inv.get("drive_url"):
-                                    # Sur Drive → lien direct
+                                    # Drive disponible → lien centré
                                     st.markdown(
+                                        f"<div style='text-align:center;padding-top:4px'>"
                                         f"<a href='{inv['drive_url']}' target='_blank' "
                                         f"style='font-size:1.1rem;text-decoration:none;' "
-                                        f"title='Voir sur Drive'>⬇️</a>",
+                                        f"title='Voir sur Drive'>⬇️</a></div>",
                                         unsafe_allow_html=True
                                     )
                                 else:
-                                    # Session expirée → icône grisée
                                     st.markdown(
-                                        "<div title='Fichier non disponible (relancez l\\'app)' "
-                                        "style='text-align:center;color:#d1d5db;"
-                                        "font-size:1rem;padding-top:4px;cursor:help;'>💾</div>",
+                                        "<div style='text-align:center;color:#d1d5db;"
+                                        "font-size:1rem;padding-top:6px;cursor:help;' "
+                                        "title='Fichier non disponible'>💾</div>",
                                         unsafe_allow_html=True
                                     )
 
                             # ── Suppression ─────────────────────────────────
                             with c7:
+                                st.markdown('<div style="display:flex;justify-content:center;align-items:center;height:100%">', unsafe_allow_html=True)
                                 if st.button(
                                     "🗑️",
                                     key=f"d_{inv['entry_index']}_{inv['file_pos']}",
-                                    help=f"Supprimer {inv['filename']}"
+                                    help=f"Supprimer {inv['filename']}",
+                                    use_container_width=True,
                                 ):
                                     delete_file_entry(inv["entry_index"], inv["filename"])
                                     st.session_state["_del_toast"] = inv["filename"]
                                     st.session_state["active_tab"] = "admin"
                                     st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
 
