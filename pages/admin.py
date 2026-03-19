@@ -5,7 +5,7 @@ import hashlib
 import streamlit as st
 from datetime import datetime
 
-from utils.history import get_history, delete_file_entry
+from utils.history import get_history, delete_file_entry, get_file_bytes
 
 ADMIN_CSS = """<style>
 /* ── Layout responsive ────────────────────────────────────────────── */
@@ -128,6 +128,40 @@ ADMIN_CSS = """<style>
 }
 .integ-ok   { background:#dcfce7; color:#166534; }
 .integ-warn { background:#fef9c3; color:#854d0e; }
+
+/* ── Boutons action (download / delete) dans les lignes facture ─── */
+/* Cibler les boutons dans les dernières colonnes des lignes facture */
+[data-testid="stDownloadButton"] button,
+[data-testid="stDownloadButton"] > button {
+    background: #f0f9ff !important;
+    color: #1e40af !important;
+    border: 1px solid #bfdbfe !important;
+    border-radius: 6px !important;
+    padding: 2px 6px !important;
+    font-size: .8rem !important;
+    width: 100% !important;
+    min-height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+    background: #dbeafe !important;
+}
+/* Bouton supprimer */
+div[data-testid="stButton"] button[kind="secondary"] {
+    background: #fff7f7 !important;
+    color: #991b1b !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 6px !important;
+    padding: 2px 6px !important;
+    font-size: .8rem !important;
+    width: 100% !important;
+    min-height: 32px !important;
+}
+div[data-testid="stButton"] button[kind="secondary"]:hover {
+    background: #fee2e2 !important;
+}
 
 /* ── Empty state ─────────────────────────────────────────────────── */
 .empty-state {
@@ -252,7 +286,7 @@ def render_admin_page(config: dict):
         if st.button("Se connecter", use_container_width=True):
             if _check_password(pwd, config):
                 st.session_state.admin_logged = True
-                st.query_params["tab"] = "admin"
+                st.session_state["active_tab"] = "admin"
                 st.rerun()
             else:
                 st.error("Mot de passe incorrect.")
@@ -345,23 +379,69 @@ def render_admin_page(config: dict):
 
                         for inv in invs:
                             icon = _cat_icon(inv["type"])
-                            c1, c2, c3, c4, c5, c6 = st.columns([.5, 3.5, 2, 1.5, 1.2, .6])
+                            # Layout : icône | nom+drive | catégorie | montant | date | dl | del
+                            c1, c2, c3, c4, c5, c6, c7 = st.columns([.4, 3.2, 1.8, 1.3, 1.1, .5, .5])
 
-                            with c1: st.markdown(f"<div style='font-size:1.1rem;padding-top:4px'>{icon}</div>", unsafe_allow_html=True)
+                            with c1:
+                                st.markdown(
+                                    f"<div style='font-size:1rem;padding-top:6px;text-align:center'>{icon}</div>",
+                                    unsafe_allow_html=True
+                                )
                             with c2:
-                                name = inv["filename"][:35] + "…" if len(inv["filename"]) > 35 else inv["filename"]
+                                name = inv["filename"][:32] + "…" if len(inv["filename"]) > 32 else inv["filename"]
                                 st.markdown(f"**{name}**")
                                 if inv.get("drive_url"):
-                                    st.markdown(f"[☁️ Drive]({inv['drive_url']})")
-                            with c3: st.caption(inv["type"])
-                            with c4: st.markdown(f"**{inv['montant']}**" if inv["montant"] else "—")
-                            with c5: st.caption(inv["date"][:10] if inv["date"] else "")
+                                    st.markdown(f"<a href='{inv['drive_url']}' target='_blank' style='font-size:.72rem;color:#1e40af;'>☁️ Drive</a>",
+                                                unsafe_allow_html=True)
+                            with c3:
+                                st.caption(inv["type"])
+                            with c4:
+                                st.markdown(f"**{inv['montant']}**" if inv["montant"] else "")
+                            with c5:
+                                st.caption(inv["date"][:10] if inv["date"] else "")
+
+                            # ── Téléchargement ──────────────────────────────
                             with c6:
-                                if st.button("🗑️", key=f"d_{inv['entry_index']}_{inv['file_pos']}",
-                                             help="Supprimer"):
+                                fbytes, fmime = get_file_bytes(inv["entry_index"], inv["filename"])
+                                if fbytes:
+                                    # Fichier en session → téléchargement direct
+                                    st.download_button(
+                                        label="⬇️",
+                                        data=fbytes,
+                                        file_name=inv["filename"],
+                                        mime=fmime,
+                                        key=f"dl_{inv['entry_index']}_{inv['file_pos']}",
+                                        help=f"Télécharger {inv['filename']}",
+                                    )
+                                    # Conserver l'onglet admin après dl
+                                    st.session_state["active_tab"] = "admin"
+                                elif inv.get("drive_url"):
+                                    # Sur Drive → lien direct
+                                    st.markdown(
+                                        f"<a href='{inv['drive_url']}' target='_blank' "
+                                        f"style='font-size:1.1rem;text-decoration:none;' "
+                                        f"title='Voir sur Drive'>⬇️</a>",
+                                        unsafe_allow_html=True
+                                    )
+                                else:
+                                    # Session expirée → icône grisée
+                                    st.markdown(
+                                        "<div title='Fichier non disponible (relancez l\\'app)' "
+                                        "style='text-align:center;color:#d1d5db;"
+                                        "font-size:1rem;padding-top:4px;cursor:help;'>💾</div>",
+                                        unsafe_allow_html=True
+                                    )
+
+                            # ── Suppression ─────────────────────────────────
+                            with c7:
+                                if st.button(
+                                    "🗑️",
+                                    key=f"d_{inv['entry_index']}_{inv['file_pos']}",
+                                    help=f"Supprimer {inv['filename']}"
+                                ):
                                     delete_file_entry(inv["entry_index"], inv["filename"])
                                     st.session_state["_del_toast"] = inv["filename"]
-                                    st.query_params["tab"] = "admin"
+                                    st.session_state["active_tab"] = "admin"
                                     st.rerun()
 
     st.divider()
@@ -394,5 +474,5 @@ def render_admin_page(config: dict):
     with col_logout:
         if st.button("🚪 Déconnexion", use_container_width=True):
             st.session_state.admin_logged = False
-            st.query_params.clear()
+            st.session_state["active_tab"] = "client"
             st.rerun()

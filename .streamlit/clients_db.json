@@ -5,9 +5,22 @@
     "siren": "123456789",
     "email": "contact@enterpriseabc.fr",
     "phone": "",
-    "seen_count": 1,
+    "seen_count": 9,
     "first_seen": "2026-03-18",
-    "last_seen": "2026-03-18",
+    "last_seen": "2026-03-19",
+    "is_new": false,
+    "_match_method": "siret_db",
+    "_confidence": 1.0
+  },
+  ".STREAMLIT.APP": {
+    "name": ".streamlit.app",
+    "siret": "",
+    "siren": "",
+    "email": "",
+    "phone": "0972675077",
+    "seen_count": 1,
+    "first_seen": "2026-03-19",
+    "last_seen": "2026-03-19",
     "is_new": true
   }
 }

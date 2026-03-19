@@ -1,7 +1,12 @@
 """
-FactureScan Pro — Point d'entrée principal
+FactureScan Pro — Point d'entrée principal.
+
+Gestion des onglets SANS query_params pour éviter les redirections
+non voulues vers l'espace comptable.
+L'onglet actif est géré uniquement via st.session_state["active_tab"].
 """
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="FactureScan Pro",
@@ -19,10 +24,10 @@ from pages.scan import render_scan_page
 
 inject_css()
 cabinet_key = get_active_cabinet()
-config = load_config(cabinet_key)
+config      = load_config(cabinet_key)
 inject_pwa(config.get("cabinet_name", "FactureScan Pro"))
 
-# ── Header ──────────────────────────────────────────────────────────────────
+# ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="app-header">
     <div class="app-logo">Facture<span>Scan</span> Pro</div>
@@ -30,7 +35,12 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Navigation ───────────────────────────────────────────────────────────────
+# ── Onglets ───────────────────────────────────────────────────────────────────
+# L'onglet actif est contrôlé uniquement par session_state["active_tab"]
+# Valeurs : "client" (défaut) ou "admin"
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "client"
+
 tab_client, tab_admin = st.tabs(["📷  Scanner une facture", "🔐  Espace comptable"])
 
 with tab_client:
@@ -39,7 +49,37 @@ with tab_client:
 with tab_admin:
     render_admin_page(config)
 
-# ── Footer ───────────────────────────────────────────────────────────────────
+# ── Activation JS de l'onglet admin si demandé ───────────────────────────────
+# Injecté APRÈS le rendu des onglets, uniquement quand nécessaire.
+# Utilise components.html (iframe) dont le JS accède à window.parent.
+if st.session_state.get("active_tab") == "admin":
+    components.html("""
+    <script>
+    (function() {
+        var attempts = 0;
+        function clickAdmin() {
+            attempts++;
+            try {
+                var doc  = window.parent.document;
+                var tabs = doc.querySelectorAll('[data-baseweb="tab"]');
+                if (tabs && tabs.length >= 2) {
+                    var isActive = tabs[1].getAttribute('aria-selected') === 'true'
+                                || tabs[1].getAttribute('tabindex') === '0';
+                    if (!isActive) {
+                        tabs[1].click();
+                    }
+                    return;
+                }
+            } catch(e) {}
+            if (attempts < 40) setTimeout(clickAdmin, 80);
+        }
+        clickAdmin();
+        window.addEventListener('load', function() { setTimeout(clickAdmin, 50); });
+    })();
+    </script>
+    """, height=0)
+
+# ── Footer ────────────────────────────────────────────────────────────────────
 from datetime import datetime
 st.markdown(f"""
 <div class="footer">

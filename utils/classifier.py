@@ -252,6 +252,13 @@ def identify_client_from_ocr(ocr_result: dict) -> dict:
         return client
 
     # Couche 4 : Rien du tout → fallback
+    # Mais si le siret/siren est présent, créer un client "inconnu" avec ces infos
+    if siret or siren:
+        client = _register_client(f"Client SIRET {siren or siret[:9]}", siret, siren, client_email, client_phone)
+        client["_match_method"] = "siret_only"
+        client["_confidence"]   = 0.6
+        return client
+
     return {
         "name":          "Inconnu",
         "siret":         siret,
@@ -265,6 +272,23 @@ def identify_client_from_ocr(ocr_result: dict) -> dict:
 # ────────────────────────────────────────────────────────────────────────────
 # Classification catégorie
 # ────────────────────────────────────────────────────────────────────────────
+
+def classify_category_from_doctype(doc_type: str) -> dict:
+    """Mappe le type de document IDP vers la catégorie comptable."""
+    mapping = {
+        "facture_achat":   "Achats_Fournisseurs",
+        "facture_vente":   "Ventes_Clients",
+        "note_frais":      "Notes_Frais",
+        "bulletin_salaire":"Salaires_Social",
+        "releve_bancaire": "Banque_Tresorerie",
+        "bon_commande":    "Achats_Fournisseurs",
+        "avoir":           "Ventes_Clients",
+        "avis_echeance":   "Achats_Fournisseurs",
+        "devis":           "Achats_Fournisseurs",
+        "contrat":         "Achats_Fournisseurs",
+    }
+    cat_key = mapping.get(doc_type, "Achats_Fournisseurs")
+    return {**CATEGORIES[cat_key], "_key": cat_key, "_score": 5, "_method": "doc_type"}
 
 def classify_category(text: str) -> dict:
     text_lower = text.lower()
@@ -325,7 +349,16 @@ def analyze_invoice(ocr_result: dict) -> dict:
     """
     text         = ocr_result.get("text", "")
     client       = identify_client_from_ocr(ocr_result)
-    category     = classify_category(text)
+    # Utiliser le type IDP si disponible (plus précis), sinon keywords
+    doc_type     = ocr_result.get("doc_type", "")
+    if doc_type and doc_type != "facture_vente":
+        category = classify_category_from_doctype(doc_type)
+    else:
+        category = classify_category(text)
+    # Si le classifieur keywords trouve mieux, on le prend
+    kw_cat = classify_category(text)
+    if kw_cat.get("_score", 0) >= 2:
+        category = kw_cat
     date_tuple   = ocr_result.get("invoice_date")
     drive_path   = build_drive_path(client, category, date_tuple)
 
@@ -337,7 +370,8 @@ def analyze_invoice(ocr_result: dict) -> dict:
         "siret":          ocr_result.get("siret", ""),
         "siren":          ocr_result.get("siren", ""),
         "company_names":  ocr_result.get("company_names", []),
-        "is_fallback":    drive_path["is_fallback"],
+        # is_fallback=True seulement si client vraiment inconnu ET catégorie non trouvée
+        "is_fallback":    (client.get("name","Inconnu") == "Inconnu" and drive_path["is_fallback"]),
         "confidence":     client.get("_confidence", 0.0),
         "match_method":   client.get("_match_method", "none"),
         "is_new_client":  client.get("is_new", False),

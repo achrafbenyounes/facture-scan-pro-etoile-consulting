@@ -1,6 +1,9 @@
 """
 Page client — Scan universel Android/iPhone/Desktop.
 Upload natif Streamlit : fonctionne sur tous les appareils.
+
+IMPORTANT : N'utilise JAMAIS st.query_params ni active_tab="admin"
+            pour ne pas changer d'onglet lors du scan.
 """
 import streamlit as st
 import time
@@ -17,7 +20,6 @@ from utils.history import log_submission
 # CSS
 # ─────────────────────────────────────────────────────────────────────────────
 CLIENT_CSS = """<style>
-/* ── Upload zone ──────────────────────────────────────────────────── */
 [data-testid="stFileUploaderDropzone"] {
     background: #1a472a !important;
     border: none !important;
@@ -25,9 +27,7 @@ CLIENT_CSS = """<style>
     padding: 1.2rem 1rem !important;
     cursor: pointer !important;
 }
-[data-testid="stFileUploaderDropzone"] > div {
-    color: #f5f2eb !important;
-}
+[data-testid="stFileUploaderDropzone"] > div { color: #f5f2eb !important; }
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span {
     color: #f5f2eb !important;
     font-family: 'Syne', sans-serif !important;
@@ -49,7 +49,6 @@ CLIENT_CSS = """<style>
     padding: 0.4rem 1.2rem !important;
     margin-top: 0.5rem !important;
 }
-/* ── Résultat carte ───────────────────────────────────────────────── */
 .r-card {
     background:#fff; border:1.5px solid #d4cfc6; border-radius:8px;
     padding:1.2rem 1.4rem; margin-bottom:1rem; box-shadow:2px 2px 0 #d4cfc6;
@@ -61,14 +60,14 @@ CLIENT_CSS = """<style>
 .r-fname { font-weight:700; font-size:.95rem; color:#0d0d0d; word-break:break-all; flex:1; }
 .r-row {
     display:flex; justify-content:space-between; align-items:flex-start;
-    padding:6px 0; font-size:.85rem; border-bottom:1px solid #f3f4f6; gap:8px;
-    flex-wrap: wrap;
+    padding:6px 0; font-size:.85rem; border-bottom:1px solid #f3f4f6;
+    gap:8px; flex-wrap:wrap;
 }
 .r-row:last-child { border-bottom:none; }
 .r-key {
     color:#6b6560; flex-shrink:0; font-size:.72rem;
     text-transform:uppercase; letter-spacing:.07em; padding-top:3px;
-    min-width: 100px;
+    min-width:100px;
 }
 .r-val { font-weight:500; font-size:.85rem; color:#0d0d0d; text-align:right; flex:1; }
 .r-path {
@@ -76,12 +75,10 @@ CLIENT_CSS = """<style>
     padding:6px 10px; font-family:monospace; font-size:.72rem;
     color:#1e40af; line-height:1.8; word-break:break-all; margin-top:4px;
 }
-/* ── Badges ──────────────────────────────────────────────────────── */
 .bk-new  { background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700; }
 .bk-ok   { background:#dcfce7;color:#166534;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700; }
 .bk-warn { background:#fef9c3;color:#854d0e;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700; }
 .bk-err  { background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700; }
-/* ── OCR grid ────────────────────────────────────────────────────── */
 .ocr-grid {
     display:grid; grid-template-columns:auto 1fr; gap:4px 12px;
     background:#f9fafb; border:1px solid #e5e7eb;
@@ -89,14 +86,12 @@ CLIENT_CSS = """<style>
 }
 .ocr-k { color:#6b7280; }
 .ocr-v { font-weight:500; color:#111827; word-break:break-all; }
-/* ── Succès ─────────────────────────────────────────────────────── */
 .success-box {
     background:#edf7ef; border:2px solid #1a472a; border-radius:8px;
     padding:2rem; text-align:center; margin:1rem 0;
 }
 .success-box h3 { font-family:'Syne',sans-serif; color:#1a472a; font-size:1.4rem; margin:.5rem 0; }
 .success-box p  { color:#6b6560; font-size:.9rem; }
-/* ── Alertes ─────────────────────────────────────────────────────── */
 .warn-box {
     background:#fffbeb; border:1.5px solid #f59e0b; border-radius:6px;
     padding:.8rem 1rem; font-size:.85rem; color:#92400e; margin-top:.5rem;
@@ -105,16 +100,14 @@ CLIENT_CSS = """<style>
     background:#eff6ff; border:1.5px solid #93c5fd; border-radius:6px;
     padding:.8rem 1rem; font-size:.85rem; color:#1e40af; margin-top:.5rem;
 }
-/* ── Mobile ─────────────────────────────────────────────────────── */
-@media (max-width: 600px) {
-    .r-key { min-width: 80px; font-size:.68rem; }
+@media (max-width:600px) {
+    .r-key { min-width:80px; font-size:.68rem; }
     .r-val { font-size:.8rem; }
-    .ocr-grid { grid-template-columns: 1fr; }
-    .r-path { font-size:.65rem; }
+    .ocr-grid { grid-template-columns:1fr; }
 }
 </style>"""
 
-# JS injecté UNE SEULE FOIS pour activer capture=environment sur mobile
+# JS pour caméra arrière sur mobile — n'affecte PAS la navigation des onglets
 CAPTURE_JS = """<script>
 (function(){
     function patch(){
@@ -129,7 +122,6 @@ CAPTURE_JS = """<script>
     patch();
     setTimeout(patch, 400);
     setTimeout(patch, 1200);
-    // Observer pour reruns Streamlit
     var obs = new MutationObserver(patch);
     obs.observe(window.parent.document.body, {childList:true, subtree:true});
 })();
@@ -137,7 +129,7 @@ CAPTURE_JS = """<script>
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helpers affichage
+# Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _badge(method, confidence, name, is_new):
@@ -145,7 +137,7 @@ def _badge(method, confidence, name, is_new):
         return '<span class="bk-err">⚠ Non identifié</span>'
     if is_new:
         return f'<span class="bk-new">✦ Nouveau · {name}</span>'
-    if method in ("siret_db", "siret", "name_db", "ocr_new"):
+    if method in ("siret_db", "siret", "name_db", "ocr_new", "siret_only"):
         return f'<span class="bk-ok">✓ {name}</span>'
     pct = int(confidence * 100)
     return f'<span class="{"bk-ok" if pct>=80 else "bk-warn"}">{name}</span>'
@@ -170,29 +162,28 @@ def _result_card(fname, client, analysis, ocr, drive_result):
     dt     = analysis["invoice_date"]
     fields = ocr.get("fields", {})
 
-    badge     = _badge(analysis.get("match_method","none"), analysis.get("confidence",0),
-                       client.get("name","?"), analysis.get("is_new_client",False))
-    icon      = _cat_icon(cat.get("folder",""))
-    date_str  = f"{dt[0]:02d}/{dt[1]:02d}/{dt[2]}" if dt else datetime.now().strftime("%d/%m/%Y")
-    path_disp = " › ".join([path["client_folder"], path["exercice_folder"],
-                              path["category_folder"], path["month_folder"]])
+    badge    = _badge(analysis.get("match_method","none"), analysis.get("confidence",0),
+                      client.get("name","?"), analysis.get("is_new_client",False))
+    icon     = _cat_icon(cat.get("folder",""))
+    date_str = f"{dt[0]:02d}/{dt[1]:02d}/{dt[2]}" if dt else datetime.now().strftime("%d/%m/%Y")
+    path_d   = " › ".join([path["client_folder"], path["exercice_folder"],
+                            path["category_folder"], path["month_folder"]])
 
     if drive_result.get("success"):
-        st_icon   = "✅"
-        drive_row = f'<a href="{drive_result["web_link"]}" target="_blank" style="color:#1e40af;font-size:12px;">☁️ Voir sur Drive</a>'
+        st_icon  = "✅"
+        drive_lk = f'<a href="{drive_result["web_link"]}" target="_blank" style="color:#1e40af;font-size:12px;">☁️ Drive</a>'
     else:
-        st_icon   = "📧"
-        drive_row = '<span style="color:#9ca3af;font-size:11px;">Drive non configuré</span>'
+        st_icon  = "📧"
+        drive_lk = '<span style="color:#9ca3af;font-size:11px;">Drive non configuré</span>'
 
-    siret_str = client.get("siret") or client.get("siren","")
-    email_str = ocr.get("client_email","")
-    email_row = (f'<span class="bk-ok">✉ {email_str}</span>' if email_str
-                 else '<span style="color:#9ca3af;font-size:11px;">—</span>')
-
+    siret_str   = client.get("siret") or client.get("siren","")
+    email_str   = ocr.get("client_email","")
+    email_html  = (f'<span class="bk-ok">✉ {email_str}</span>' if email_str
+                   else '<span style="color:#9ca3af;font-size:11px;">—</span>')
     ocr_section = _ocr_grid(fields)
-    ocr_html = (f'<div class="r-row"><span class="r-key">OCR</span>'
-                f'<span class="r-val" style="text-align:left;">{ocr_section}</span></div>'
-                if ocr_section else "")
+    ocr_html    = (f'<div class="r-row"><span class="r-key">OCR</span>'
+                   f'<span class="r-val" style="text-align:left;">{ocr_section}</span></div>'
+                   if ocr_section else "")
 
     return f"""
 <div class="r-card">
@@ -202,14 +193,14 @@ def _result_card(fname, client, analysis, ocr, drive_result):
   </div>
   <div class="r-row"><span class="r-key">Client</span><span class="r-val">{badge}</span></div>
   {"<div class='r-row'><span class='r-key'>SIRET</span><span class='r-val'>" + siret_str + "</span></div>" if siret_str else ""}
-  <div class="r-row"><span class="r-key">Email</span><span class="r-val">{email_row}</span></div>
+  <div class="r-row"><span class="r-key">Email</span><span class="r-val">{email_html}</span></div>
   <div class="r-row"><span class="r-key">Catégorie</span><span class="r-val">{icon} {cat.get("label","—")}</span></div>
   <div class="r-row"><span class="r-key">Date</span><span class="r-val">{date_str}</span></div>
   <div class="r-row">
     <span class="r-key">Drive</span>
     <span class="r-val">
-      <div class="r-path">{path_disp}</div>
-      <div style="margin-top:4px">{drive_row}</div>
+      <div class="r-path">{path_d}</div>
+      <div style="margin-top:4px">{drive_lk}</div>
     </span>
   </div>
   {ocr_html}
@@ -223,7 +214,7 @@ def _result_card(fname, client, analysis, ocr, drive_result):
 def render_client_page(config: dict):
     st.markdown(CLIENT_CSS, unsafe_allow_html=True)
 
-    # ── Succès ────────────────────────────────────────────────────────────────
+    # ── Résultat post-scan ────────────────────────────────────────────────────
     if st.session_state.get("scan_done"):
         nb_ok        = st.session_state.get("scan_nb_ok", 0)
         nb_total     = st.session_state.get("scan_nb_total", 0)
@@ -240,11 +231,13 @@ def render_client_page(config: dict):
         </div>""", unsafe_allow_html=True)
 
         if new_clients:
-            st.markdown(f'<div class="info-box">✦ <strong>Nouveau(x) client(s) :</strong> {", ".join(new_clients)}</div>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="info-box">✦ <strong>Nouveau(x) client(s) :</strong> {", ".join(new_clients)}</div>',
+                unsafe_allow_html=True)
         if any_fallback:
-            st.markdown('<div class="warn-box">⚠️ Certaines factures n\'ont pas pu être identifiées → placées dans <code>0_A_Classer</code></div>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                '<div class="warn-box">⚠️ Certaines factures non identifiées → placées dans <code>0_A_Classer</code></div>',
+                unsafe_allow_html=True)
 
         st.markdown(results_html, unsafe_allow_html=True)
 
@@ -254,8 +247,10 @@ def render_client_page(config: dict):
             st.error(f"📧 Erreur email : {email_error}")
             st.caption("💡 Vérifiez SMTP_PASSWORD → myaccount.google.com/apppasswords")
 
+        # Bouton "Scanner d'autres factures" — reste sur l'onglet client
         if st.button("📷 Scanner d'autres factures", use_container_width=True):
-            st.session_state.scan_done = False
+            st.session_state.scan_done  = False
+            # NE PAS toucher active_tab ici → reste sur l'onglet client
             st.rerun()
         return
 
@@ -271,22 +266,24 @@ def render_client_page(config: dict):
         </p>
     </div>""", unsafe_allow_html=True)
 
-    # Uploader natif — fonctionne Android, iPhone, Desktop
     files = st.file_uploader(
         "📷 Prendre une photo ou choisir un fichier",
         type=["pdf", "jpg", "jpeg", "png", "heic", "webp"],
         accept_multiple_files=True,
-        help="Android/iPhone : appuyez pour ouvrir la caméra ou la galerie",
+        help="Sur mobile : appuyez pour ouvrir la caméra ou la galerie",
+        # Clé STABLE : évite que Streamlit recrée le widget à chaque rerun
+        key="main_uploader",
     )
 
-    # JS : active capture=environment sur mobile (ouvre caméra arrière)
+    # Caméra arrière sur mobile (n'affecte pas la navigation)
     st.markdown(CAPTURE_JS, unsafe_allow_html=True)
 
     if not files:
-        st.markdown("""
-        <div style="text-align:center;padding:1rem 0;color:#9ca3af;font-size:.8rem;">
-            Sur mobile : appuyez sur <strong>Browse files</strong> pour scanner
-        </div>""", unsafe_allow_html=True)
+        st.markdown(
+            '<div style="text-align:center;padding:1rem 0;color:#9ca3af;font-size:.8rem;">'
+            'Sur mobile : appuyez sur <strong>Browse files</strong> pour scanner'
+            '</div>',
+            unsafe_allow_html=True)
         return
 
     # ── Traitement ────────────────────────────────────────────────────────────
@@ -302,11 +299,21 @@ def render_client_page(config: dict):
     progress = st.progress(0, text="Analyse en cours…")
 
     for i, f in enumerate(files):
-        progress.progress(int(i / nb_total * 100), text=f"📄 {f.name} ({i+1}/{nb_total})…")
+        progress.progress(
+            int(i / nb_total * 100),
+            text=f"📄 {f.name} ({i+1}/{nb_total})…"
+        )
+
+        # Lire les bytes AVANT l'OCR (le seek peut échouer après)
+        try:
+            f.seek(0)
+            raw_bytes = f.read()
+            f.seek(0)
+        except Exception:
+            raw_bytes = b""
 
         # OCR
-        ocr = run_ocr(f, api_key=api_key)
-
+        ocr      = run_ocr(f, api_key=api_key)
         # Classification
         analysis = analyze_invoice(ocr)
         client   = analysis["client"]
@@ -322,13 +329,16 @@ def render_client_page(config: dict):
         # Drive
         drive_result = {}
         if config.get("drive_enabled"):
-            drive_result = smart_upload_to_drive(config, f, analysis["drive_path"], analysis["invoice_date"])
+            drive_result = smart_upload_to_drive(
+                config, f, analysis["drive_path"], analysis["invoice_date"]
+            )
 
-        if not is_fb:
-            nb_ok += 1
-
+        nb_ok += 1
         results_html += _result_card(f.name, client, analysis, ocr, drive_result)
-        all_analyses.append({"file": f, "ocr": ocr, "analysis": analysis, "drive": drive_result})
+        all_analyses.append({
+            "file": f, "ocr": ocr, "analysis": analysis,
+            "drive": drive_result, "raw_bytes": raw_bytes
+        })
 
     progress.progress(100, text="✅ Analyse terminée")
     time.sleep(0.3)
@@ -347,14 +357,17 @@ def render_client_page(config: dict):
                 fields   = ocr.get("fields", {})
 
                 client_info = {
-                    "nom":       client.get("name", fields.get("Emetteur", fields.get("Émetteur", "Inconnu"))),
+                    "nom": client.get("name") or fields.get("Emetteur",
+                           fields.get("Émetteur", "Inconnu")),
                     "email":     ocr.get("client_email", ""),
                     "telephone": fields.get("Telephone", fields.get("Téléphone", "")),
                     "type_doc":  analysis["category"].get("label", "Facture"),
-                    "periode":   fields.get("Date emission", fields.get("Date", datetime.now().strftime("%d/%m/%Y"))),
-                    "note":      " | ".join(filter(None, [
-                        f"N° {fields.get('N° Facture','')}" if fields.get("N° Facture") else "",
-                        f"TTC : {fields.get('Montant TTC','')}" if fields.get("Montant TTC") else "",
+                    "periode":   fields.get("Date emission",
+                                 fields.get("Date emission", fields.get("Date",
+                                 datetime.now().strftime("%d/%m/%Y")))),
+                    "note": " | ".join(filter(None, [
+                        f"N° {fields['N° Document']}" if fields.get("N° Document") else "",
+                        f"TTC : {fields['Montant TTC']}" if fields.get("Montant TTC") else "",
                         f"SIRET : {ocr.get('siret','')}" if ocr.get("siret") else "",
                     ])),
                 }
@@ -363,18 +376,19 @@ def render_client_page(config: dict):
                 if r["drive"].get("success"):
                     drive_links = [{"name": r["file"].name, "url": r["drive"].get("web_link","")}]
 
-                # Email au comptable
                 send_to_accountant(config, client_info, [r["file"]], [ocr], drive_links)
 
-                # Confirmation client si email détecté
                 if ocr.get("client_email"):
                     try:
-                        send_confirmation_to_client(config, client_info, [r["file"]], [ocr], ocr["client_email"])
+                        send_confirmation_to_client(
+                            config, client_info, [r["file"]], [ocr], ocr["client_email"]
+                        )
                     except Exception:
                         pass
 
             if fallback_files:
                 _alert_fallback(config, fallback_files)
+
     except Exception as e:
         email_error = str(e)
 
@@ -386,18 +400,22 @@ def render_client_page(config: dict):
         fields   = ocr.get("fields", {})
         log_submission(
             {
-                "nom":       client.get("name", "Inconnu"),
+                "nom": client.get("name", "Inconnu"),
                 "email":     ocr.get("client_email", ""),
                 "telephone": fields.get("Telephone", fields.get("Téléphone", "")),
                 "type_doc":  analysis["category"].get("label", "Facture"),
-                "periode":   fields.get("Date emission", fields.get("Date", "")),
-                "note":      fields.get("N° Facture", ""),
+                "periode":   fields.get("Date emission",
+                             fields.get("Date", "")),
+                "note": fields.get("N° Document", fields.get("N° Facture", "")),
             },
             [r["file"].name],
-            [{"name": r["file"].name, "url": r["drive"].get("web_link","")}] if r["drive"].get("success") else [],
+            [{"name": r["file"].name, "url": r["drive"].get("web_link","")}]
+            if r["drive"].get("success") else [],
             [ocr],
+            file_bytes_map={r["file"].name: r.get("raw_bytes", b"")},
         )
 
+    # Stocker résultats en session — NE PAS changer active_tab
     st.session_state.scan_done         = True
     st.session_state.scan_results_html = results_html
     st.session_state.scan_nb_ok        = nb_ok
@@ -416,7 +434,7 @@ def _alert_fallback(config, filenames):
     msg["From"]    = config["smtp_user"]
     msg["To"]      = config["comptable_email"]
     msg["Subject"] = f"[FactureScan] ⚠️ {len(filenames)} facture(s) à classer"
-    body = (f"Ces factures n'ont pas pu être identifiées :\n\n"
+    body = ("Ces factures n'ont pas pu être identifiées :\n\n"
             + "\n".join(f"  • {f}" for f in filenames)
             + f"\n\nElles sont dans '0_A_Classer'.\n— {config.get('cabinet_name','')}")
     msg.attach(MIMEText(body, "plain", "utf-8"))

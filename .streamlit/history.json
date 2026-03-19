@@ -1,0 +1,49 @@
+[
+  {
+    "date": "19/03/2026 12:52",
+    "date_iso": "2026-03-19 12:52",
+    "client": "Inconnu",
+    "email": "",
+    "telephone": "",
+    "type": "À classer",
+    "periode": "",
+    "fichiers": [
+      "Facture brouillon (FA6528).pdf"
+    ],
+    "nb_fichiers": 1,
+    "drive_links": [],
+    "ocr_fields": [
+      {}
+    ],
+    "statut": "Envoyé"
+  },
+  {
+    "date": "19/03/2026 12:53",
+    "date_iso": "2026-03-19 12:53",
+    "client": "ENTREPRISE ABC",
+    "email": "contact@enterpriseabc.fr",
+    "telephone": "01 23 45 67 89",
+    "type": "Achats — Fournisseurs",
+    "periode": "",
+    "fichiers": [
+      "facture_template.png"
+    ],
+    "nb_fichiers": 1,
+    "drive_links": [],
+    "ocr_fields": [
+      {
+        "Émetteur": "ENTREPRISE ABC",
+        "Client": "Monsieur Jean Dupont",
+        "SIRET émetteur": "12345678900012",
+        "N° Document": "2022-0456",
+        "Date émission": "15/03/2022",
+        "Montant TTC": "2200.00 €",
+        "BIC": "ABCDFRPPXX",
+        "Mode de paiement": "viréent banacquie",
+        "Email": "contact@enterpriseabc.fr",
+        "Téléphone": "01 23 45 67 89"
+      }
+    ],
+    "statut": "Envoyé"
+  }
+]

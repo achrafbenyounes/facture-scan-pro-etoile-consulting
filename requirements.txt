@@ -8,6 +8,13 @@ google-api-python-client>=2.100.0
 google-auth>=2.23.0
 google-auth-httplib2>=0.1.1
 
-# ── OCR ────────────────────────────────────────────────────────────────────────
-Pillow>=10.0.0
+# ── PDF — moteurs de lecture (du plus précis au fallback) ─────────────────────
+PyMuPDF>=1.23.0
+pdfplumber>=0.10.0
 pdfminer.six>=20221105
+
+# ── Image ─────────────────────────────────────────────────────────────────────
+Pillow>=10.0.0
+
+# ── OCR local (optionnel — si Tesseract installé) ─────────────────────────────
+# pytesseract>=0.3.10
